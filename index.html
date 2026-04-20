@@ -1211,7 +1211,10 @@ function 渲染系統設定(){
       <input type="password" id="s-apikey" placeholder="sk-ant-..." value="${取得ApiKey()}">
       <span class="hint">在此設定一次，所有員工自動使用，無需各自輸入</span>
     </div>
-    <button class="btn btn-hq btn-sm" style="margin-top:10px" onclick="儲存ApiKey()">儲存 API 金鑰</button>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btn-hq btn-sm" onclick="儲存ApiKey()">儲存 API 金鑰</button>
+      <button class="btn btn-outline btn-sm" onclick="localStorage.removeItem('hm_claude_key');claudeApiKey='';document.getElementById('s-apikey').value='';提示('✓ 已清除舊金鑰，請重新貼上新金鑰儲存')">清除舊金鑰</button>
+    </div>
   </div>
   <div class="inner-tabs">
     <button class="inner-tab active" onclick="切換設定頁籤('a',this)">林家涼麵</button>
