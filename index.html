@@ -584,7 +584,7 @@ function 渲染上傳頁(br){
   <div class="card">
     <div class="card-title">📷 拍照上傳 <span class="ai-badge">AI 自動辨識</span></div>
     <div class="scan-zone" ondragover="event.preventDefault()" ondrop="event.preventDefault();處理上傳檔案('${br}',event.dataTransfer.files[0])">
-      <input type="file" id="sc-u${br}" accept="image/*" capture="environment" onchange="處理上傳檔案('${br}',this.files[0])">
+      <input type="file" id="sc-u${br}" accept="image/*" onchange="處理上傳檔案('${br}',this.files[0])">
       <div style="font-size:40px;margin-bottom:10px">📄</div>
       <div style="font-size:15px;font-weight:600;color:#555">點擊拍照或上傳結帳單</div>
       <div style="font-size:13px;color:#aaa;margin-top:6px">手機直接拍照上傳</div>
