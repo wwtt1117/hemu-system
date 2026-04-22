@@ -353,6 +353,7 @@ function 建立導覽列(role,brand){
     html+=`<div class="nav-group">
       <div class="nav-group-label">總公司</div>
       <div class="nav-item" data-page="總部"><span class="nav-dot dot-hq"></span>總部月報表</div>
+      <div class="nav-item" data-page="週結"><span class="nav-dot dot-hq"></span>週結</div>
       <div class="nav-item" data-page="帳號管理"><span class="nav-dot dot-hq"></span>帳號管理</div>
       <div class="nav-item" data-page="系統設定"><span class="nav-dot dot-hq"></span>成本設定</div>
     </div>`;
@@ -372,7 +373,7 @@ function 建立頁面(role,brand){
     pages=[`每日-${brand}`,`歷史-${brand}`,`月報-${brand}`];
   } else {
     ['a','b'].forEach(br=>pages.push(`每日-${br}`,`歷史-${br}`,`月報-${br}`,`薪資-${br}`));
-    pages.push('總部','帳號管理','系統設定');
+    pages.push('總部','帳號管理','系統設定','週結');
   }
   main.innerHTML=pages.map(p=>`<div id="page-${p}" class="page"></div>`).join('');
 }
@@ -393,6 +394,7 @@ function 切換頁面(page){
   else if(page==='總部')渲染總部選擇();
   else if(page==='帳號管理')渲染帳號管理();
   else if(page==='系統設定')渲染系統設定();
+  else if(page==='週結')渲染週結();
 }
 
 // ===== 每日輸入（店長/老闆）=====
@@ -491,6 +493,14 @@ function 渲染每日表單(br){
       <div class="field"><label>備註</label><input type="text" id="d${br}-note" placeholder="例：設備故障、外帶較多"></div>
     </div>
   </div>
+  <div class="card"><div class="card-title">💵 現金支出明細</div>
+    <div id="d${br}-exp-list" style="margin-bottom:8px"></div>
+    <button type="button" onclick="新增支出項目('${br}')" style="width:100%;padding:10px;border:1px dashed #ddd;border-radius:8px;background:#fafaf7;cursor:pointer;font-size:13px;color:#888;font-family:inherit">＋ 新增支出項目</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid #f0f0ec">
+      <span style="font-size:13px;font-weight:600;color:#555">支出合計</span>
+      <span id="d${br}-exp-total" style="font-size:18px;font-weight:600;color:#c0392b">$0</span>
+    </div>
+  </div>
   <button class="btn btn-${br} btn-full" onclick="儲存每日記錄('${br}')">儲存今日結帳單</button>`;
 }
 
@@ -527,6 +537,31 @@ function 計算表單(br){
   }
 }
 
+function 新增支出項目(br,name='',amount=''){
+  const list=document.getElementById(`d${br}-exp-list`);if(!list)return;
+  const div=document.createElement('div');
+  div.style.cssText='display:flex;gap:6px;margin-bottom:6px;align-items:center';
+  div.innerHTML=`<input type="text" placeholder="項目名稱（如：豆乾）" value="${name}" style="flex:2;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit" oninput="計算支出合計('${br}')">
+    <input type="number" placeholder="0" value="${amount}" style="flex:1;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px" oninput="計算支出合計('${br}')">
+    <button onclick="this.parentElement.remove();計算支出合計('${br}')" style="padding:6px 10px;border:1px solid #eee;border-radius:8px;background:#fff;cursor:pointer;color:#aaa;font-size:13px">✕</button>`;
+  list.appendChild(div);計算支出合計(br);
+}
+function 計算支出合計(br){
+  const list=document.getElementById(`d${br}-exp-list`);if(!list)return;
+  let total=0;list.querySelectorAll('input[type="number"]').forEach(inp=>total+=parseFloat(inp.value)||0);
+  const el=document.getElementById(`d${br}-exp-total`);if(el)el.textContent='$'+格式化金額(total);
+}
+function 取得支出明細(br){
+  const list=document.getElementById(`d${br}-exp-list`);if(!list)return[];
+  const items=[];
+  list.querySelectorAll('div').forEach(row=>{
+    const inputs=row.querySelectorAll('input');if(inputs.length<2)return;
+    const name=inputs[0].value.trim(),amount=parseFloat(inputs[1].value)||0;
+    if(name||amount>0)items.push({name,amount});
+  });
+  return items;
+}
+
 async function 執行AI辨識(br){
   let apiKey=取得ApiKey();
   if(!apiKey){await 載入品牌設定();apiKey=取得ApiKey();}
@@ -544,7 +579,7 @@ async function 執行AI辨識(br){
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:500,messages:[{role:'user',content:[
         {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},
-        {type:'text',text:'從這張台灣餐廳結帳單提取數據，只回傳JSON，不要其他文字。欄位：cash(現金收入),linepay(LINE Pay),twpay(台灣PAY),uber(Uber門市實收),guests(交易筆數),cashShould(錢櫃應收現金),cashActual(錢櫃實點現金),voidAmt(作廢金額),txItems(銷售數量)。找不到設0。'}
+        {type:'text',text:'從這張台灣餐廳結帳單提取數據，只回傳JSON，不要其他文字。欄位：cash(現金收入),linepay(LINE Pay),twpay(台灣PAY),uber(Uber門市實收),guests(交易筆數),cashShould(錢櫃應收現金),cashActual(錢櫃實點現金),voidAmt(作廢金額),txItems(銷售數量),expenses(現金支出明細陣列，格式[{name:項目名稱,amount:金額}]，讀取圈起來或手寫紅色的支出項目，找不到設[])。找不到數字設0。'}
       ]}]})
     });
     if(!resp.ok){const errBody=await resp.json().catch(()=>({}));throw new Error(`API錯誤 ${resp.status}：${errBody?.error?.message||JSON.stringify(errBody)}`);}
@@ -558,6 +593,10 @@ async function 執行AI辨識(br){
       const el=document.getElementById(fid);
       if(el&&r[k]){el.value=r[k];el.classList.add('ai-filled');填入數量++;}
     });
+    if(r.expenses&&Array.isArray(r.expenses)&&r.expenses.length>0){
+      const list=document.getElementById(`d${br}-exp-list`);
+      if(list){list.innerHTML='';r.expenses.forEach(item=>新增支出項目(br,item.name||'',item.amount||0));填入數量+=r.expenses.length;}
+    }
     計算表單(br);
     statusEl.className='ai-status success';
     statusEl.innerHTML=`<span>✓ 成功辨識並填入 ${填入數量} 個欄位！帶橘色框線的為自動填入，請確認後儲存。</span>`;
@@ -585,7 +624,8 @@ async function 儲存每日記錄(br){
     cash_should:cashShould,cash_actual:cashActual,cash_short_over:cashActual-cashShould,
     void_amt:數值(`d${br}-void`),tx_items:數值(`d${br}-txItems`),
     reserve,cashpay,calc_bal:cash-reserve-cashpay,posbal,diff:posbal?posbal-(cash-reserve-cashpay):0,
-    note:文字(`d${br}-note`),uploaded_by:目前使用者?.email
+    note:文字(`d${br}-note`),uploaded_by:目前使用者?.email,
+    expenses:JSON.stringify(取得支出明細(br)),expenses_total:取得支出明細(br).reduce((s,i)=>s+i.amount,0)
   }});
   載入中(false);
   if(!res.ok){提示('儲存失敗：'+res.error);return}
@@ -1304,6 +1344,82 @@ async function 儲存設定(br){
 }
 
 // ===== 啟動 =====
+// ===== 週結 =====
+function 渲染週結(){
+  const el=document.getElementById('page-週結');
+  const today=new Date();
+  const dow=today.getDay()||7;
+  const mon=new Date(today);mon.setDate(today.getDate()-dow+1);
+  const sun=new Date(mon);sun.setDate(mon.getDate()+6);
+  const fmt=d=>d.toISOString().slice(0,10);
+  el.innerHTML=`
+  <div class="brand-header"><span class="brand-badge badge-hq">總公司</span><span class="page-title">週結</span></div>
+  <div class="card"><div class="card-title">選擇週別</div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <input type="date" id="wk-start" value="${fmt(mon)}" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:14px">
+      <span style="color:#888">至</span>
+      <input type="date" id="wk-end" value="${fmt(sun)}" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:14px">
+      <button class="btn btn-dark" onclick="執行週結查詢()">查詢</button>
+    </div>
+  </div>
+  <div id="週結-content" style="color:#aaa;padding:1rem;text-align:center">點「查詢」載入本週資料</div>`;
+}
+
+async function 執行週結查詢(){
+  const start=document.getElementById('wk-start')?.value;
+  const end=document.getElementById('wk-end')?.value;
+  if(!start||!end){提示('請選擇日期範圍');return}
+  const el=document.getElementById('週結-content');
+  el.innerHTML='<div style="color:#aaa;padding:1rem;text-align:center">載入中...</div>';
+  const months=new Set();
+  const d=new Date(start);while(d<=new Date(end)){months.add(d.toISOString().slice(0,7));d.setDate(d.getDate()+1);}
+  const promises=[];
+  for(const m of months){promises.push(呼叫API({action:'getRecords',brand:'a',month:m,role:'owner'}));promises.push(呼叫API({action:'getRecords',brand:'b',month:m,role:'owner'}));}
+  const results=await Promise.all(promises);
+  const all=results.flatMap(r=>r.data||[]).filter(r=>r.date>=start&&r.date<=end);
+  const calc=records=>({
+    cashIn:records.reduce((s,r)=>s+(parseFloat(r.cash)||0),0),
+    expTotal:records.reduce((s,r)=>s+(parseFloat(r.expenses_total)||0),0),
+    days:records.length
+  });
+  const a=calc(all.filter(r=>r.brand==='a'));
+  const b=calc(all.filter(r=>r.brand==='b'));
+  const row=(label,val,cls='')=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0ec"><span style="color:#888;font-size:13px">${label}</span><span style="font-weight:600${cls?' color:'+cls:''}">${val}</span></div>`;
+  const card=(title,dot,data)=>`<div class="card">
+    <div class="card-title"><span class="nav-dot dot-${dot}" style="display:inline-block;margin-right:6px"></span>${title}（${data.days}天）</div>
+    ${row('現金收入','$'+格式化金額(data.cashIn),'#27ae60')}
+    ${row('現金支出','$'+格式化金額(data.expTotal),'#c0392b')}
+    ${row('應交現金','$'+格式化金額(data.cashIn-data.expTotal))}
+  </div>`;
+  const totalNet=(a.cashIn+b.cashIn)-(a.expTotal+b.expTotal);
+  el.innerHTML=`
+    ${card(品牌名稱['a'],'a',a)}
+    ${card(品牌名稱['b'],'b',b)}
+    <div class="card"><div class="card-title">💰 兩品牌合計</div>
+      ${row('總現金收入','$'+格式化金額(a.cashIn+b.cashIn),'#27ae60')}
+      ${row('總現金支出','$'+格式化金額(a.expTotal+b.expTotal),'#c0392b')}
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0ec">
+        <span style="font-weight:600">應交現金（錢袋）</span>
+        <span style="font-size:22px;font-weight:700;color:#1a1a1a">$${格式化金額(totalNet)}</span>
+      </div>
+      <div style="margin-top:12px">
+        <div class="field"><label>實際交現金（老闆輸入）</label>
+          <input type="number" id="wk-actual" placeholder="0" oninput="計算週結差異(${totalNet})" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:15px">
+        </div>
+        <div id="wk-diff" style="margin-top:10px;padding:10px;border-radius:8px;background:#f5f4f0;text-align:center;font-size:14px;color:#888">輸入實際金額後顯示差異</div>
+      </div>
+    </div>`;
+}
+
+function 計算週結差異(應交){
+  const actual=parseFloat(document.getElementById('wk-actual')?.value)||0;
+  const diff=actual-應交;
+  const el=document.getElementById('wk-diff');
+  if(!el)return;
+  if(diff===0){el.style.background='#eafaf1';el.style.color='#27ae60';el.textContent='✓ 金額吻合，可入錢袋';}
+  else{el.style.background=diff>0?'#eaf4fb':'#fef0f0';el.style.color=diff>0?'#2980b9':'#c0392b';el.textContent=(diff>0?'多':'少')+'了 $'+格式化金額(Math.abs(diff));}
+}
+
 初始化();
 </script>
 </body>
