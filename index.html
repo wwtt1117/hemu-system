@@ -238,6 +238,15 @@ function 文字(id){return document.getElementById(id)?.value||''}
 function 固定成本(s){return(s.rent||0)+(s.platform||0)+(s.pos||0)+(s.phone||0)+(s.ads||0)+(s.other||0)}
 function 取得ApiKey(){return claudeApiKey||localStorage.getItem('hm_claude_key')||''}
 function 設定ApiKey(k){localStorage.setItem('hm_claude_key',k.trim())}
+function 請求輸入金鑰(){
+  return new Promise(resolve=>{
+    const overlay=document.createElement('div');
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem';
+    overlay.innerHTML='<div style="background:#fff;border-radius:16px;padding:1.5rem;width:100%;max-width:380px"><div style="font-weight:600;margin-bottom:.5rem">輸入 Claude API 金鑰</div><div style="font-size:13px;color:#888;margin-bottom:1rem">請向管理員取得金鑰後貼上</div><input id="_tmp_key" type="password" placeholder="sk-ant-..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:1rem"><div style="display:flex;gap:8px"><button onclick="this.closest(\'div[style*=fixed]\').remove();document.getElementById(\'_tmp_key\')&&window._keyResolve(\'\')" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer">取消</button><button onclick="const k=document.getElementById(\'_tmp_key\').value.trim();if(!k)return;claudeApiKey=k;localStorage.setItem(\'hm_claude_key\',k);this.closest(\'div[style*=fixed]\').remove();window._keyResolve(k)" style="flex:1;padding:10px;border:none;border-radius:8px;background:#111;color:#fff;cursor:pointer;font-weight:600">確認</button></div></div>';
+    window._keyResolve=resolve;
+    document.body.appendChild(overlay);
+  });
+}
 
 function 提示(訊息){
   const t=document.getElementById('toast');
@@ -521,7 +530,8 @@ function 計算表單(br){
 async function 執行AI辨識(br){
   let apiKey=取得ApiKey();
   if(!apiKey){await 載入品牌設定();apiKey=取得ApiKey();}
-  if(!apiKey){提示('請先輸入 Claude API 金鑰');return}
+  if(!apiKey){apiKey=await 請求輸入金鑰();if(!apiKey)return;}
+
   const file=document.getElementById(`sc-${br}`)?.files[0]||document.getElementById(`sc-${br}-lib`)?.files[0];
   if(!file){提示('請先上傳照片');return}
   const statusEl=document.getElementById(`ast-${br}`);
@@ -666,7 +676,8 @@ function 計算上傳(br){
 async function 執行員工AI辨識(br){
   let apiKey=取得ApiKey();
   if(!apiKey){await 載入品牌設定();apiKey=取得ApiKey();}
-  if(!apiKey){提示('請先輸入 Claude API 金鑰');return}
+  if(!apiKey){apiKey=await 請求輸入金鑰();if(!apiKey)return;}
+
   const file=document.getElementById(`sc-u${br}`)?.files[0]||document.getElementById(`sc-u${br}-lib`)?.files[0];
   if(!file){提示('請先上傳照片');return}
   const statusEl=document.getElementById(`ast-u${br}`);
