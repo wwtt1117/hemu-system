@@ -880,6 +880,72 @@ function 查看詳細(r){
   `;
   document.getElementById('detail-modal').classList.add('open');
   document.body.style.overflow='hidden';
+  document.getElementById('detail-actions').innerHTML=
+    `<button class="btn" style="flex:1;background:#c8a96e;color:#fff;border:none" onclick="編輯記錄(${JSON.stringify(r).replace(/"/g,'&quot;')})">編輯</button>
+     <button class="btn" style="flex:1;background:#eee;color:#555;border:none" onclick="關閉詳細()">關閉</button>`;
+}
+function 編輯記錄(r){
+  const f=(id,label,val,type='number')=>`<div class="field"><label>${label}</label><input type="${type}" id="edit-${id}" value="${val||''}" placeholder="0"></div>`;
+  document.getElementById('detail-content').innerHTML=`
+  <div class="g2">
+    <div class="field"><label>日期</label><input type="date" id="edit-date" value="${r.date||''}"></div>
+    <div class="field"><label>天氣</label><select id="edit-weather"><option value="">— 選擇 —</option>${['晴天','陰天','雨天','颱風'].map(w=>`<option${r.weather===w?' selected':''}>${w}</option>`).join('')}</select></div>
+  </div>
+  <div style="font-size:11px;font-weight:600;color:#999;margin:12px 0 6px">收入明細</div>
+  <div class="g2">
+    ${f('guests','來客數',r.guests)}
+    ${f('cash','現金收入',r.cash)}
+    ${f('lp','LINE Pay',r.lp)}
+    ${f('tw','台灣 PAY',r.tw)}
+    ${f('uber','Uber Eats',r.uber)}
+  </div>
+  <div style="font-size:11px;font-weight:600;color:#999;margin:12px 0 6px">現金核對</div>
+  <div class="g2">
+    ${f('cash_should','錢櫃應收',r.cash_should)}
+    ${f('cash_actual','錢櫃實點',r.cash_actual)}
+    ${f('void_amt','作廢金額',r.void_amt)}
+  </div>
+  <div style="font-size:11px;font-weight:600;color:#999;margin:12px 0 6px">每日支出</div>
+  <div class="g2">
+    ${f('market','現場進貨',r.market)}
+    ${f('central','央廚進貨',r.central)}
+    ${f('pack','餐具／包材',r.pack)}
+    ${f('meal','員工餐費',r.meal)}
+    ${f('gas','瓦斯',r.gas)}
+    ${f('misc','其他雜支',r.misc)}
+  </div>
+  <div style="font-size:11px;font-weight:600;color:#999;margin:12px 0 6px">備註</div>
+  <div class="field"><input type="text" id="edit-note" value="${r.note||''}" placeholder="備註"></div>`;
+  document.getElementById('detail-actions').innerHTML=
+    `<button class="btn" style="flex:1;background:#27ae60;color:#fff;border:none" onclick="儲存修改('${r.id}','${r.brand}')">儲存</button>
+     <button class="btn" style="flex:1;background:#eee;color:#555;border:none" onclick="關閉詳細()">取消</button>`;
+}
+async function 儲存修改(id,br){
+  const g=k=>document.getElementById('edit-'+k);
+  const n=k=>+(g(k)?.value)||0;
+  const cash=n('cash'),lp=n('lp'),tw=n('tw'),uber=n('uber');
+  const total=cash+lp+tw+uber;
+  const s=品牌設定[br]||{lp_rate:3,uber_rate:31};
+  const cashActual=n('cash_actual'),cashShould=n('cash_should');
+  載入中(true,'儲存中...');
+  const res=await 呼叫API({action:'updateRecord',record:{
+    id,brand:br,
+    date:g('date')?.value,weather:g('weather')?.value,
+    guests:n('guests'),cash,lp,tw,uber,total,
+    p_fee:lp*(s.lp_rate/100)+uber*(s.uber_rate/100),
+    cash_should:cashShould,cash_actual:cashActual,
+    cash_short_over:cashActual-cashShould,
+    void_amt:n('void_amt'),
+    market:n('market'),central:n('central'),pack:n('pack'),
+    meal:n('meal'),gas:n('gas'),misc:n('misc'),
+    handover:cash-n('market'),
+    note:g('note')?.value
+  }});
+  載入中(false);
+  if(!res.ok){提示('儲存失敗：'+(res.error||'未知錯誤'));return}
+  提示('✓ 已成功修改');
+  關閉詳細();
+  渲染歷史記錄(br);
 }
 function 關閉詳細(){
   document.getElementById('detail-modal').classList.remove('open');
@@ -1523,6 +1589,7 @@ async function 刪除資金記錄(id){
       <button onclick="關閉詳細()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888">✕</button>
     </div>
     <div id="detail-content"></div>
+    <div id="detail-actions" style="display:flex;gap:8px;margin-top:1rem"></div>
   </div>
 </div>
 </body>
