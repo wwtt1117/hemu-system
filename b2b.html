@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>醬醬人 × 批發下單平台</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans TC',system-ui,sans-serif;background:#f7f5f0;color:#1a1a1a;min-height:100vh}
+.topbar{background:#1a1a1a;color:#fff;padding:1rem 1.5rem;display:flex;align-items:center;justify-content:space-between}
+.logo{font-size:18px;font-weight:700;letter-spacing:1px}
+.logo span{color:#e8c84a}
+.tagline{font-size:12px;color:#888}
+.container{max-width:560px;margin:0 auto;padding:2rem 1rem}
+.card{background:#fff;border-radius:16px;padding:1.5rem;margin-bottom:1rem;border:1px solid #e5e5df}
+.card-title{font-size:13px;font-weight:600;color:#888;margin-bottom:1.2rem;text-transform:uppercase;letter-spacing:.5px}
+.page-title{font-size:22px;font-weight:700;margin-bottom:.4rem}
+.page-sub{font-size:14px;color:#888;margin-bottom:1.5rem}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:1rem}
+.field label{font-size:13px;font-weight:500;color:#555}
+.field input,.field select,.field textarea{padding:10px 12px;border:1px solid #ddd;border-radius:10px;font-size:15px;font-family:inherit;background:#fafafa;transition:border .2s}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:#e8c84a;background:#fff}
+.field textarea{resize:vertical;min-height:80px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btn{width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:.2s}
+.btn-primary{background:#1a1a1a;color:#fff}
+.btn-primary:hover{background:#333}
+.btn-outline{background:#fff;color:#1a1a1a;border:1.5px solid #1a1a1a}
+.btn-outline:hover{background:#f0f0f0}
+.btn-yellow{background:#e8c84a;color:#1a1a1a}
+.btn-yellow:hover{background:#d4b43a}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.hint{font-size:12px;color:#aaa;margin-top:4px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-pending{background:#fff3cd;color:#856404}
+.badge-approved{background:#d1e7dd;color:#0f5132}
+.badge-rejected{background:#f8d7da;color:#842029}
+.status-card{border-radius:12px;padding:1.2rem;margin-bottom:1rem;text-align:center}
+.status-card.waiting{background:#fffbeb;border:1.5px solid #e8c84a}
+.status-card.approved{background:#f0fdf4;border:1.5px solid #22c55e}
+.divider{display:flex;align-items:center;gap:12px;margin:1.5rem 0;color:#bbb;font-size:13px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:#e5e5df}
+.order-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f0f0f0}
+.order-item:last-child{border:none}
+.item-name{flex:1;font-size:14px;font-weight:500}
+.item-qty{display:flex;align-items:center;gap:8px}
+.qty-btn{width:30px;height:30px;border:1px solid #ddd;border-radius:8px;background:#fafafa;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.qty-btn:hover{background:#e8c84a;border-color:#e8c84a}
+.qty-input{width:50px;text-align:center;border:1px solid #ddd;border-radius:8px;padding:4px;font-size:14px;font-family:inherit}
+.item-price{font-size:13px;color:#888;min-width:60px;text-align:right}
+.summary-row{display:flex;justify-content:space-between;padding:6px 0;font-size:14px}
+.summary-row.total{font-weight:700;font-size:16px;border-top:1px solid #e5e5df;margin-top:6px;padding-top:12px}
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:10px 20px;border-radius:10px;font-size:14px;z-index:999;opacity:0;transition:.3s;pointer-events:none}
+.toast.show{opacity:1}
+.loading-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#fff;font-size:15px}
+.loading-overlay.show{display:flex}
+.spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.steps{display:flex;gap:8px;margin-bottom:2rem}
+.step{flex:1;height:4px;border-radius:2px;background:#e5e5df}
+.step.active{background:#e8c84a}
+.step.done{background:#1a1a1a}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <div class="logo">醬醬人 <span>SauceMan</span></div>
+    <div class="tagline">和木餐飲 × 批發供應平台</div>
+  </div>
+  <div id="topbar-user" style="font-size:13px;color:#888"></div>
+</div>
+
+<div class="container" id="app"></div>
+
+<div class="toast" id="toast"></div>
+<div class="loading-overlay" id="loading"><div class="spinner"></div><div id="loading-text">處理中...</div></div>
+
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbw-G6nMGsOQeqCTM9GgMWkzNk4bwB5ABBAEiF9ynzdQgqWWmxfe0ulgdxUnuFaK523m/exec';
+
+// 暫定品項（之後可從後台設定）
+const PRODUCTS = [
+  {id:'p1', name:'林家涼麵（原味）', unit:'盒', price:0, minQty:10},
+  {id:'p2', name:'林家涼麵（麻辣）', unit:'盒', price:0, minQty:10},
+  {id:'p3', name:'自家辣椒油', unit:'罐', price:0, minQty:6},
+];
+
+let session = JSON.parse(sessionStorage.getItem('b2b-session')||'null');
+let cart = {};
+
+const app = document.getElementById('app');
+
+function 提示(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+function 載入(show,text='處理中...'){
+  const el=document.getElementById('loading');
+  document.getElementById('loading-text').textContent=text;
+  el.classList.toggle('show',show);
+}
+async function 呼叫API(body){
+  try{
+    const r=await fetch(API,{method:'POST',body:JSON.stringify(body)});
+    return await r.json();
+  }catch(e){return{ok:false,error:e.message};}
+}
+function 數值(id){return +(document.getElementById(id)?.value)||0;}
+function 文字(id){return document.getElementById(id)?.value?.trim()||'';}
+
+// ===== 路由 =====
+function 渲染(){
+  if(!session) return 渲染首頁();
+  if(session.status==='pending') return 渲染等待審核();
+  if(session.status==='approved') return 渲染下單頁();
+}
+
+// ===== 首頁 =====
+function 渲染首頁(){
+  document.getElementById('topbar-user').textContent='';
+  app.innerHTML=`
+  <div style="padding-top:1rem">
+    <div class="page-title">批發合作申請</div>
+    <div class="page-sub">歡迎早餐店、麵店、網咖、咖啡店等業者洽詢批發</div>
+    <div class="card">
+      <div class="card-title">已有批發帳號</div>
+      <div class="field"><label>帳號代碼</label><input id="login-code" placeholder="請輸入你的專屬代碼"></div>
+      <button class="btn btn-primary" onclick="登入()">登入下單</button>
+    </div>
+    <div class="divider">還沒有帳號</div>
+    <div class="card">
+      <div class="card-title">申請成為批發客戶</div>
+      <div class="g2">
+        <div class="field"><label>店家名稱 *</label><input id="apply-name" placeholder="例：阿明早餐店"></div>
+        <div class="field"><label>業態 *</label>
+          <select id="apply-type">
+            <option value="">— 選擇 —</option>
+            <option>早餐店</option><option>麵店</option><option>網咖</option>
+            <option>咖啡廳</option><option>便當店</option><option>其他</option>
+          </select>
+        </div>
+      </div>
+      <div class="g2">
+        <div class="field"><label>聯絡人姓名 *</label><input id="apply-contact" placeholder="姓名"></div>
+        <div class="field"><label>聯絡電話 *</label><input id="apply-phone" type="tel" placeholder="0912345678"></div>
+      </div>
+      <div class="field"><label>店家地址</label><input id="apply-address" placeholder="縣市 + 路段即可"></div>
+      <div class="field"><label>Email（審核結果通知用）</label><input id="apply-email" type="email" placeholder="your@email.com"></div>
+      <div class="field"><label>想進什麼品項？有什麼問題？</label><textarea id="apply-note" placeholder="例：想進盒裝涼麵，一週預計用量大約 XX 份..."></textarea></div>
+      <button class="btn btn-yellow" onclick="送出申請()" style="margin-top:.5rem">送出申請</button>
+      <div class="hint" style="text-align:center;margin-top:.8rem">送出後我們會在 1-2 個工作天內審核並通知你</div>
+    </div>
+  </div>`;
+}
+
+// ===== 登入 =====
+async function 登入(){
+  const code=文字('login-code');
+  if(!code){提示('請輸入帳號代碼');return;}
+  載入(true,'驗證中...');
+  const res=await 呼叫API({action:'b2bLogin',code});
+  載入(false);
+  if(!res.ok){提示(res.error||'代碼錯誤，請確認後再試');return;}
+  session=res.customer;
+  sessionStorage.setItem('b2b-session',JSON.stringify(session));
+  渲染();
+}
+
+// ===== 送出申請 =====
+async function 送出申請(){
+  const name=文字('apply-name'),type=文字('apply-type'),
+        contact=文字('apply-contact'),phone=文字('apply-phone');
+  if(!name||!type||!contact||!phone){提示('請填寫必填欄位（*）');return;}
+  載入(true,'送出申請中...');
+  const res=await 呼叫API({action:'b2bApply',data:{
+    name,type,contact,phone,
+    address:文字('apply-address'),
+    email:文字('apply-email'),
+    note:文字('apply-note')
+  }});
+  載入(false);
+  if(!res.ok){提示('送出失敗：'+(res.error||'請稍後再試'));return;}
+  session={status:'pending',name,contact};
+  sessionStorage.setItem('b2b-session',JSON.stringify(session));
+  渲染();
+}
+
+// ===== 等待審核 =====
+function 渲染等待審核(){
+  app.innerHTML=`
+  <div style="padding-top:2rem;text-align:center">
+    <div style="font-size:48px;margin-bottom:1rem">⏳</div>
+    <div class="page-title" style="text-align:center">申請已收到！</div>
+    <div class="page-sub" style="text-align:center;margin-bottom:1.5rem">我們會在 1-2 個工作天內審核並通知你</div>
+    <div class="status-card waiting">
+      <div style="font-weight:600;margin-bottom:.4rem">${session.name}</div>
+      <div style="font-size:13px;color:#888">審核中，請稍候</div>
+    </div>
+    <button class="btn btn-outline" onclick="session=null;sessionStorage.removeItem('b2b-session');渲染()" style="margin-top:1rem">返回首頁</button>
+  </div>`;
+}
+
+// ===== 下單頁 =====
+function 渲染下單頁(){
+  document.getElementById('topbar-user').textContent=session.name||'';
+  const today=new Date().toISOString().slice(0,10);
+  // 預計到貨日：3天後
+  const d=new Date(); d.setDate(d.getDate()+3);
+  const defaultDate=d.toISOString().slice(0,10);
+
+  app.innerHTML=`
+  <div style="padding-top:1rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+      <div>
+        <div class="page-title">批發下單</div>
+        <div style="font-size:13px;color:#888">${session.name}</div>
+      </div>
+      <button onclick="登出()" style="background:none;border:1px solid #ddd;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;color:#888">登出</button>
+    </div>
+    <div class="card">
+      <div class="card-title">品項選擇</div>
+      <div id="product-list">
+        ${PRODUCTS.map(p=>`
+        <div class="order-item">
+          <div class="item-name">
+            ${p.name}
+            <div style="font-size:12px;color:#aaa">最低訂購 ${p.minQty} ${p.unit}</div>
+          </div>
+          <div class="item-qty">
+            <button class="qty-btn" onclick="調整數量('${p.id}',-1)">−</button>
+            <input class="qty-input" type="number" id="qty-${p.id}" value="0" min="0" oninput="更新小計()">
+            <button class="qty-btn" onclick="調整數量('${p.id}',1)">＋</button>
+          </div>
+          <div class="item-price" id="sub-${p.id}" style="font-size:12px;color:#aaa">${p.unit}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">配送資訊</div>
+      <div class="field"><label>希望到貨日期</label><input type="date" id="order-date" value="${defaultDate}" min="${today}"></div>
+      <div class="field"><label>配送地址</label><input id="order-address" value="${session.address||''}" placeholder="請填寫配送地址"></div>
+      <div class="field"><label>備註</label><textarea id="order-note" placeholder="例：請送到後門、指定時段等..."></textarea></div>
+    </div>
+    <div class="card" style="border:1.5px solid #1a1a1a">
+      <div class="card-title">訂單摘要</div>
+      <div id="order-summary"><div style="color:#aaa;font-size:14px">尚未選擇品項</div></div>
+    </div>
+    <button class="btn btn-yellow" onclick="送出訂單()" style="margin-bottom:2rem">確認送出訂單</button>
+  </div>`;
+}
+
+function 調整數量(id, delta){
+  const input=document.getElementById('qty-'+id);
+  const p=PRODUCTS.find(x=>x.id===id);
+  let v=+(input.value||0)+delta;
+  if(v<0)v=0;
+  input.value=v;
+  更新小計();
+}
+
+function 更新小計(){
+  let hasItem=false;
+  let summaryHTML='';
+  PRODUCTS.forEach(p=>{
+    const qty=+(document.getElementById('qty-'+p.id)?.value||0);
+    const sub=document.getElementById('sub-'+p.id);
+    if(sub) sub.textContent=qty>0?qty+' '+p.unit:p.unit;
+    if(qty>0){
+      hasItem=true;
+      summaryHTML+=`<div class="summary-row"><span>${p.name}</span><span>${qty} ${p.unit}</span></div>`;
+    }
+  });
+  const summaryEl=document.getElementById('order-summary');
+  if(summaryEl) summaryEl.innerHTML=hasItem?summaryHTML:'<div style="color:#aaa;font-size:14px">尚未選擇品項</div>';
+}
+
+async function 送出訂單(){
+  const items=PRODUCTS.map(p=>({
+    id:p.id,name:p.name,unit:p.unit,
+    qty:+(document.getElementById('qty-'+p.id)?.value||0)
+  })).filter(x=>x.qty>0);
+  if(!items.length){提示('請至少選擇一個品項');return;}
+  const date=文字('order-date'),address=文字('order-address');
+  if(!date){提示('請選擇希望到貨日期');return;}
+  if(!address){提示('請填寫配送地址');return;}
+  載入(true,'送出訂單中...');
+  const res=await 呼叫API({action:'b2bOrder',order:{
+    customerCode:session.code,
+    customerName:session.name,
+    contact:session.contact,
+    phone:session.phone,
+    items,date,address,
+    note:文字('order-note')
+  }});
+  載入(false);
+  if(!res.ok){提示('送出失敗：'+(res.error||'請稍後再試'));return;}
+  渲染完成頁(res.orderId);
+}
+
+function 渲染完成頁(orderId){
+  app.innerHTML=`
+  <div style="padding-top:3rem;text-align:center">
+    <div style="font-size:56px;margin-bottom:1rem">✅</div>
+    <div class="page-title" style="text-align:center">訂單已送出！</div>
+    <div class="page-sub" style="text-align:center;margin-bottom:1.5rem">我們收到您的訂單，會盡快確認並回覆</div>
+    <div class="card" style="text-align:left">
+      <div class="card-title">訂單編號</div>
+      <div style="font-size:18px;font-weight:700;letter-spacing:1px">${orderId}</div>
+    </div>
+    <button class="btn btn-primary" onclick="渲染下單頁()" style="margin-top:.5rem">繼續下單</button>
+    <button class="btn btn-outline" onclick="登出()" style="margin-top:.5rem">登出</button>
+  </div>`;
+}
+
+function 登出(){
+  session=null;
+  sessionStorage.removeItem('b2b-session');
+  渲染();
+}
+
+渲染();
+</script>
+</body>
+</html>
